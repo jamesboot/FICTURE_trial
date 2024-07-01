@@ -182,3 +182,67 @@ ficture slda_decode --input ${input} \
 --lite_topk_output_pixel ${topk} \
 --lite_topk_output_anchor ${topk} \
 --thread ${thread}
+
+# Optional post-processing
+input=${output_path}/${prefix}.pixel.tsv.gz                             # j, X, Y, K1, ..., KJ, P1, ..., PJ, J=topk
+output=${output_path}/${prefix}.pixel.sorted.tsv.gz
+
+K=$( echo $model_id | sed 's/nF\([0-9]\{1,\}\)\..*/\1/' )
+while IFS=$'\t' read -r r_key r_val; do
+    export "${r_key}"="${r_val}"
+done < ${coor}
+echo -e "${xmin}, ${xmax}; ${ymin}, ${ymax}"
+
+offsetx=${xmin}
+offsety=${ymin}
+rangex=$( echo "(${xmax} - ${xmin} + 0.5)/1+1" | bc )
+rangey=$( echo "(${ymax} - ${ymin} + 0.5)/1+1" | bc )
+bsize=2000
+scale=100
+header="##K=${K};TOPK=3\n##BLOCK_SIZE=${bsize};BLOCK_AXIS=X;INDEX_AXIS=Y\n##OFFSET_X=${offsetx};OFFSET_Y=${offsety};SIZE_X=${rangex};SIZE_Y=${rangey};SCALE=${scale}\n#BLOCK\tX\tY\tK1\tK2\tK3\tP1\tP2\tP3"
+
+(echo -e "${header}" && zcat ${input} | tail -n +2 | perl -slane '$F[0]=int(($F[1]-$offx)/$bsize) * $bsize; $F[1]=int(($F[1]-$offx)*$scale); $F[1]=($F[1]>=0)?$F[1]:0; $F[2]=int(($F[2]-$offy)*$scale); $F[2]=($F[2]>=0)?$F[2]:0; print join("\t", @F);' -- -bsize=${bsize} -scale=${scale} -offx=${offsetx} -offy=${offsety} | sort -S 4G -k1,1g -k3,3g ) | bgzip -c > ${output}
+
+tabix -f -s1 -b3 -e3 ${output}
+rm ${input}
+
+# DE Analysis
+max_pval_output=1e-3
+min_fold_output=1.5
+input=${output_path}/${prefix}.posterior.count.tsv.gz
+output=${output_path}/${prefix}.bulk_chisq.tsv
+
+ficture de_bulk --input ${input} \
+--output ${output} \
+--min_ct_per_feature ${min_ct_per_feature} \
+--max_pval_output ${max_pval_output} \
+--min_fold_output ${min_fold_output} \
+--thread ${thread}
+
+# Report (color table and top DE genes)
+cmap=${output_path}/figure/${output_id}.rgb.tsv
+output=${output_path}/${prefix}.factor.info.html
+
+ficture factor_report --path ${output_path} \
+--pref ${prefix} \
+--color_table ${cmap}
+
+# Make pixel level figures
+cmap=${output_path}/figure/${output_id}.rgb.tsv
+input=${output_path}/${prefix}.pixel.sorted.tsv.gz
+output=${figure_path}/${prefix}.pixel.png
+
+ficture plot_pixel_full --input ${input} \
+--color_table ${cmap} \
+--output ${output} \
+--plot_um_per_pixel 0.5 \
+--full
+
+# Make single factor heatmaps
+output=${figure_path}/sub/${prefix}.pixel
+
+ficture plot_pixel_single --input ${input} \
+--output ${output} \
+--plot_um_per_pixel 0.5 \
+--full \
+--all
