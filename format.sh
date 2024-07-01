@@ -14,12 +14,6 @@
 #$ -N ficture              # Change the name of the job accordingly
 #####
 
-# Load Python module
-module load python
-
-# Activate virtualenv
-source ficture/bin/activate
-
 INPUT=/data/home/hmy961/ficture_trial/tma2/data/GCIN10692_TMA2_tx_file.csv.gz                 # Change it to your transcript file
 PATH=/data/home/hmy961/ficture_trial/tma2/outs
 IDEN=TMA2                                                   # How you identify your files
@@ -29,6 +23,12 @@ PX_TO_UM=0.120                                              # Convert the pixel 
 OUTPUT=${PATH}/filtered.matrix.${IDEN}.tsv
 FEATURE=${PATH}/feature.clean.${IDEN}.tsv.gz
 
+# Load Python module
+module load python
+
+# Activate virtualenv
+source /data/home/hmy961/ficture/bin/activate
+
 python /data/home/hmy961/ficture_trial/scripts/format_cosmx.py --input ${INPUT} \
 --output ${OUTPUT} \
 --feature ${FEATURE} \
@@ -36,6 +36,8 @@ python /data/home/hmy961/ficture_trial/scripts/format_cosmx.py --input ${INPUT} 
 --px_to_um ${PX_TO_UM} \
 --annotation cell_ID \
 --precision 2
+
+deactivate
 
 sort -k2,2g -k1,1g ${OUTPUT} | gzip -c > ${OUTPUT}.gz
 rm ${OUTPUT}
