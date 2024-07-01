@@ -24,11 +24,12 @@ OUTPUT=${PATH}/filtered.matrix.${IDEN}.tsv
 FEATURE=${PATH}/feature.clean.${IDEN}.tsv.gz
 
 # Load Python module
-module load python
+module load python/3.11.6
 
 # Activate virtualenv
 source /data/home/hmy961/ficture/bin/activate
 
+# Run fictur format script
 python /data/home/hmy961/ficture_trial/scripts/format_cosmx.py --input ${INPUT} \
 --output ${OUTPUT} \
 --feature ${FEATURE} \
@@ -37,7 +38,9 @@ python /data/home/hmy961/ficture_trial/scripts/format_cosmx.py --input ${INPUT} 
 --annotation cell_ID \
 --precision 2
 
+# Deactivate virtualenv
 deactivate
 
+# Sort and compress
 sort -k2,2g -k1,1g ${OUTPUT} | gzip -c > ${OUTPUT}.gz
 rm ${OUTPUT}
